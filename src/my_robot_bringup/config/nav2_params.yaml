@@ -1,0 +1,466 @@
+# =============================================================================
+# Nav2 parameters — Mecanum 4-wheel robot
+# Stack : ROS2 Jazzy | Gazebo Harmonic | ros2_control
+# Map   : map_final_hospital (resolution 0.05, origin [-19.292, -60.650])
+# Laser : /scan_front_raw
+# Odom  : /mobile_base_controller/odometry
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# AMCL — Monte-Carlo localization on the saved map
+# -----------------------------------------------------------------------------
+amcl:
+  ros__parameters:
+    use_sim_time: True
+
+    # OmniMotionModel is required for mecanum (not "differential")
+    robot_model_type: "nav2_amcl::OmniMotionModel"
+    alpha1: 0.2   # rotation noise from rotation
+    alpha2: 0.2   # rotation noise from translation
+    alpha3: 0.2   # translation noise from translation
+    alpha4: 0.2   # translation noise from rotation
+    alpha5: 0.2   # strafe noise (omni model only)
+
+    base_frame_id: "base_link"
+    odom_frame_id: "odom"
+    global_frame_id: "map"
+
+    scan_topic: /scan_front_raw
+    laser_model_type: "likelihood_field"
+    laser_max_range: 25.0
+    laser_min_range: 0.08
+    max_beams: 60
+
+    min_particles: 500
+    max_particles: 2000
+    pf_err: 0.05
+    pf_z: 0.99
+    resample_interval: 1
+
+    update_min_d: 0.25
+    update_min_a: 0.2
+    transform_tolerance: 0.5  
+    tf_broadcast: true
+
+    z_hit: 0.5
+    z_short: 0.05
+    z_max: 0.05
+    z_rand: 0.5
+    sigma_hit: 0.2
+    lambda_short: 0.1
+    laser_likelihood_max_dist: 2.0
+    beam_skip_distance: 0.5
+    beam_skip_error_threshold: 0.9
+    beam_skip_threshold: 0.3
+    do_beamskip: false
+    save_pose_rate: 0.5
+    recovery_alpha_fast: 0.0
+    recovery_alpha_slow: 0.0
+
+map_server:
+  ros__parameters:
+    use_sim_time: True
+    yaml_filename: ""   # overridden by navigation.launch.py at runtime
+    topic_name: "map"
+    frame_id: "map"
+    introspection_mode: "disabled"
+
+# -----------------------------------------------------------------------------
+# BT Navigator — orchestrates Nav2 via Behavior Tree
+# NOTE (Jazzy): plugin_lib_names was removed — plugins load automatically.
+#               Only navigators + odom_topic + bt_loop_duration are needed.
+# -----------------------------------------------------------------------------
+bt_navigator:
+  ros__parameters:
+    use_sim_time: true
+    global_frame: map
+    robot_base_frame: base_link
+    odom_topic: /odometry/filtered
+    bt_loop_duration: 10
+    default_server_timeout: 20
+    # BT XML path is injected by navigation.launch.py at runtime
+    default_nav_to_pose_bt_xml: ""
+    navigators: ["navigate_to_pose", "navigate_through_poses"]
+    navigate_to_pose:
+      plugin: "nav2_bt_navigator::NavigateToPoseNavigator"
+    navigate_through_poses:
+      plugin: "nav2_bt_navigator::NavigateThroughPosesNavigator"
+    # plugin_lib_names is NOT used in Jazzy — removed to prevent crash
+
+# -----------------------------------------------------------------------------
+# Planner Server — NavFn A* global path planner
+# use_astar: true is faster than Dijkstra on a large hospital map
+# -----------------------------------------------------------------------------
+planner_server:
+  ros__parameters:
+    use_sim_time: true
+    expected_planner_frequency: 10.0
+    planner_plugins: ["GridBased"]
+    GridBased:
+      plugin: "nav2_navfn_planner::NavfnPlanner"
+      tolerance: 0.5
+      use_astar: true
+      allow_unknown: false
+
+# -----------------------------------------------------------------------------
+# Controller Server — DWB local planner with lateral velocity for mecanum
+# -----------------------------------------------------------------------------
+controller_server:
+  ros__parameters:
+    use_sim_time: True
+    enable_stamped_cmd_vel: true
+    controller_frequency: 20.0
+
+    # All three thresholds small — mecanum moves in y direction too
+    min_x_velocity_threshold: 0.001
+    min_y_velocity_threshold: 0.001
+    min_theta_velocity_threshold: 0.001
+
+    failure_tolerance: 0.3
+    progress_checker_plugin: "progress_checker"
+    goal_checker_plugins: ["precise_goal_checker"]
+    controller_plugins: ["FollowPath"]
+
+    progress_checker:
+      plugin: "nav2_controller::SimpleProgressChecker"
+      required_movement_radius: 0.2
+      movement_time_allowance: 15.0
+
+    precise_goal_checker:
+      plugin: "nav2_controller::SimpleGoalChecker"
+      xy_goal_tolerance: 0.20
+      yaw_goal_tolerance: 0.20
+      stateful: True
+
+    FollowPath:
+      plugin: "dwb_core::DWBLocalPlanner"
+      debug_trajectory_details: True
+
+      # Velocity limits — mecanum can move laterally (vel_y != 0)
+      min_vel_x:  0.0
+      min_vel_y:  0.0
+      max_vel_x:  1.5
+      max_vel_y:  0.2
+      max_vel_theta: 1.57
+      min_vel_theta: 0.0
+      min_speed_xy: -0.1
+      max_speed_xy: 1.0
+      min_speed_theta: -0.5
+
+      # Acceleration limits — lateral accel required for mecanum
+      acc_lim_x: 2.0
+      acc_lim_y: 0.5
+      acc_lim_theta: 3.2
+      decel_lim_x: -2.0
+      decel_lim_y: 0.0
+      decel_lim_theta: -3.2
+
+      # Increase vy_samples to exploit lateral motion
+      vx_samples: 20
+      vy_samples: 5
+      vtheta_samples: 20
+      sim_time: 2.5
+      linear_granularity: 0.05
+      angular_granularity: 0.025
+      transform_tolerance: 0.3
+      xy_goal_tolerance: 0.20
+      path_length_tolerance: 0.3
+      trans_stopped_velocity: 0.25
+      short_circuit_trajectory_evaluation: True
+      stateful: True
+
+      critics: ["RotateToGoal", "Oscillation", "BaseObstacle",
+                "GoalAlign", "PathAlign", "PathDist", "GoalDist"]
+      BaseObstacle.scale: 5.0
+      PathAlign.scale: 96.0
+      GoalAlign.scale: 12.0
+      PathAlign.forward_point_distance: 0.1
+      GoalAlign.forward_point_distance: 0.1
+      PathDist.scale: 128.0
+      GoalDist.scale: 16.0
+      RotateToGoal.scale: 32.0
+      RotateToGoal.slowing_factor: 5.0
+      RotateToGoal.lookahead_time: -1.0
+
+# -------------------------
+# Global Costmap (with static map layer)
+# -------------------------
+global_costmap:
+  global_costmap:
+    ros__parameters:
+      use_sim_time: true
+      global_frame: map
+      robot_base_frame: base_link
+      footprint: "[ [0.36, 0.25], [0.36, -0.25], [-0.36, -0.25], [-0.36, 0.25] ]"
+      update_frequency: 1.0
+      publish_frequency: 1.0
+      resolution: 0.05
+      track_unknown_space: true
+      plugins: ["static_layer", "obstacle_layer", "inflation_layer"]
+
+      static_layer:
+        plugin: "nav2_costmap_2d::StaticLayer"
+        map_subscribe_transient_local: true
+
+      obstacle_layer:
+        plugin: "nav2_costmap_2d::ObstacleLayer"
+        enabled: true
+        observation_sources: scan
+        scan:
+          topic: /scan_front_raw
+          max_obstacle_height: 2.0
+          clearing: true
+          marking: true
+          data_type: "LaserScan"
+          raytrace_max_range: 3.0
+          raytrace_min_range: 0.0
+          obstacle_max_range: 2.5
+          obstacle_min_range: 0.0
+
+      inflation_layer:
+        plugin: "nav2_costmap_2d::InflationLayer"
+        cost_scaling_factor: 15.0
+        inflation_radius: 1.0
+        cost_scaling_factor: 0.2  
+        inflate_unknown: false
+        inflate_around_unknown: true
+
+# -------------------------
+# Local Costmap
+# -------------------------
+local_costmap:
+  local_costmap:
+    ros__parameters:
+      use_sim_time: true
+      global_frame: odom
+      robot_base_frame: base_link
+      footprint: "[ [0.36, 0.25], [0.36, -0.25], [-0.36, -0.25], [-0.36, 0.25] ]"
+      update_frequency: 5.0
+      publish_frequency: 2.0
+      resolution: 0.05
+      rolling_window: true
+      width: 5
+      height: 5
+      plugins: ["obstacle_layer", "inflation_layer"]
+
+      obstacle_layer:
+        plugin: "nav2_costmap_2d::ObstacleLayer"
+        enabled: true
+        observation_sources: scan
+        scan:
+          topic: /scan_front_raw
+          max_obstacle_height: 2.0
+          clearing: true
+          marking: true
+          data_type: "LaserScan"
+          raytrace_max_range: 3.0
+          raytrace_min_range: 0.0
+          obstacle_max_range: 2.5
+          obstacle_min_range: 0.0
+
+      inflation_layer:
+        plugin: "nav2_costmap_2d::InflationLayer"
+        cost_scaling_factor: 3.0
+        inflation_radius: 1.0
+
+# -----------------------------------------------------------------------------
+# Map Server — serves the pre-built hospital map to Nav2 nodes
+# -----------------------------------------------------------------------------
+
+map_saver:
+  ros__parameters:
+    use_sim_time: True
+    save_map_timeout: 5.0
+    free_thresh_default: 0.25
+    occupied_thresh_default: 0.65
+    map_subscribe_transient_local: False
+
+
+# -----------------------------------------------------------------------------
+# Smoother Server — post-processes the global path for smoother execution
+# -----------------------------------------------------------------------------
+smoother_server:
+  ros__parameters:
+    use_sim_time: True
+    costmap_topic: global_costmap/costmap_raw
+    footprint_topic: global_costmap/published_footprint
+    robot_base_frame: base_link
+    transform_tolerance: 0.1
+    smoother_plugins: ["simple_smoother"]
+    simple_smoother:
+      plugin: "nav2_smoother::SimpleSmoother"
+      tolerance: 1.0e-10
+      max_its: 1000
+      do_refinement: True
+      w_data: 0.4    
+      w_smooth: 0.3  
+
+# -----------------------------------------------------------------------------
+# Behavior Server — recovery behaviors (Jazzy renamed from recoveries_server)
+# Spin is disabled: unsafe in narrow hospital corridors
+# -----------------------------------------------------------------------------
+behavior_server:
+  ros__parameters:
+    use_sim_time: True
+    local_costmap_topic: local_costmap/costmap_raw
+    local_footprint_topic: local_costmap/published_footprint
+    global_costmap_topic: global_costmap/costmap_raw
+    global_footprint_topic: global_costmap/published_footprint
+    cycle_frequency: 10.0
+    behavior_plugins: ["spin", "backup", "drive_on_heading", "wait"]
+    spin:
+      plugin: "nav2_behaviors::Spin" # In Iron and older versions, "/" was used instead of "::"
+    backup:
+      plugin: "nav2_behaviors::BackUp"
+    drive_on_heading:
+      plugin: "nav2_behaviors::DriveOnHeading"
+    wait:
+      plugin: "nav2_behaviors::Wait"
+    local_frame: odom
+    global_frame: map
+    robot_base_frame: base_link  # ✅ FIXED: was base_link (inconsistent)
+    transform_tolerance: 0.2
+    simulate_ahead_time: 1.7
+    max_rotational_vel: 1.0
+    min_rotational_vel: 0.4
+    rotational_acc_lim: 3.2
+    enable_stamped_cmd_vel: true
+
+
+velocity_smoother:
+  ros__parameters:
+    use_sim_time: True
+    smoothing_frequency: 20.0
+    scale_velocities: False
+    feedback: "CLOSED_LOOP"
+    #input_topic: "/cmd_vel_nav"              
+    max_velocity:  [1.5, 1.0, 1.5]
+    min_velocity:  [-1.0, -1.0, -1.5]
+    deadband_velocity: [0.0, 0.0, 0.0]
+    velocity_timeout: 1.5
+    max_accel:     [10.0, 10.0, 10.5]
+    max_decel:     [-10.0, -10.0, -10.5] 
+    odom_topic: "odom"
+    odom_duration: 0.5
+    use_realtime_priority: False
+    #cmd_vel_topic: "cmd_vel_smoothed"
+    enable_stamped_cmd_vel: True           
+    stamp_smoothed_velocity_with_smoothing_time: false  
+
+collision_monitor:
+  ros__parameters:
+    use_sim_time: True
+    enabled: True
+    base_frame_id: "base_link"
+    odom_frame_id: "odom"
+    cmd_vel_in_topic: "/cmd_vel_smoothed"  
+    #cmd_vel_out_topic: "cmd_vel"
+    cmd_vel_out_topic: "/mobile_base_controller/reference"
+    state_topic: "collision_monitor_state"
+    transform_tolerance: 0.5
+    source_timeout: 5.0
+    base_shift_correction: True
+    stop_pub_timeout: 2.0
+    enable_stamped_cmd_vel: True
+    use_realtime_priority: false
+
+    # Dùng 3 lớp bảo vệ: Phanh gấp, Giảm tốc, và Tiên đoán va chạm
+    polygons: ["PolygonStop", "PolygonSlow", "FootprintApproach"]
+
+    # 1. VÙNG PHANH GẤP (Bao quanh sát xe)
+    # Xe dài 0.72 x rộng 0.50 => Vùng bảo vệ dài 0.90 x rộng 0.70 (Dư ra 10cm mỗi cạnh)
+    PolygonStop:
+      type: "polygon"
+      points: "[[0.4, 0.3], [0.4, -0.3], [-0.4, -0.3], [-0.4, 0.3]]"
+      action_type: "stop"
+      min_points: 4
+      visualize: True
+      polygon_pub_topic: "polygon_stop"
+      enabled: True
+
+    # 2. VÙNG GIẢM TỐC (Cảnh báo từ xa)
+    # Rộng hơn vùng Stop, cách xe khoảng 40cm
+    PolygonSlow:
+      type: "polygon"
+      points: "[[0.6, 0.3], [0.6, -0.3], [-0.6, -0.3], [-0.6, 0.3]]"
+      action_type: "slowdown"
+      min_points: 4
+      slowdown_ratio: 0.5  # Bóp tốc độ xuống còn 30% khi có người lọt vào vùng này
+      visualize: True
+      polygon_pub_topic: "polygon_slowdown"
+      enabled: True
+
+    FootprintApproach:
+      type: "polygon"
+      action_type: "approach"
+      footprint_topic: "/local_costmap/published_footprint"
+      time_before_collision: 1.5   # Robot sẽ phanh nếu tính toán thấy 1.5 giây nữa sẽ đâm
+      simulation_time_step: 0.1
+      min_points: 4
+      visualize: False
+      enabled: True
+
+    # 4. KẾT NỐI VỚI 2 LIDAR TRƯỚC VÀ SAU CỦA XE
+    observation_sources: ["front_scan", "rear_scan"]
+    
+    front_scan:
+      type: "scan"
+      topic: "/scan_front_raw"
+      source_timeout: 0.5
+      enabled: True
+      
+    rear_scan:
+      type: "scan"
+      topic: "/scan_rear_raw"
+      source_timeout: 0.5
+      enabled: True
+
+collision_detector:
+  ros__parameters:
+    use_sim_time: True
+    base_frame_id: "base_link"
+    odom_frame_id: "odom"
+    transform_tolerance: 0.5
+    source_timeout: 5.0
+    base_shift_correction: True
+    
+    # Tạo một vùng cảnh báo 360 độ bao quanh xe
+    polygons: ["SafetyZone"]
+    
+    SafetyZone:
+      type: "polygon"
+      # Kích thước xe: dài 0.72m x rộng 0.5m
+      # Vùng cảnh báo: dài 0.80m x rộng 0.60m (Cách mép xe khoảng 4-5cm)
+      points: "[[1.5, 0.4], [1.5, -0.4], [-1.0, -0.4], [-1.0, 0.4]]"
+      action_type: "none"  # Bản chất của Detector là 'none' (không can thiệp mô-tơ)
+      min_points: 4
+      visualize: True
+      polygon_pub_topic: "polygon_safety_zone"
+      
+    # Thu thập dữ liệu từ cả 2 Lidar
+    observation_sources: ["front_scan", "rear_scan"]
+    
+    front_scan:
+      type: "scan"
+      topic: "/scan_front_raw"
+      source_timeout: 0.5
+      enabled: True
+      
+    rear_scan:
+      type: "scan"
+      topic: "/scan_rear_raw"
+      source_timeout: 0.5
+      enabled: True
+
+robot_state_publisher:
+  ros__parameters:
+    use_sim_time: True
+
+lifecycle_manager_navigation:
+  ros__parameters:
+    use_sim_time: True
+    autostart: True
+    node_names: ['map_server', 'amcl', 'controller_server', 'smoother_server', 'planner_server', 'behavior_server', 'bt_navigator', 'waypoint_follower', 'velocity_smoother', 'collision_monitor', 'collision_detector']    
+    bond_timeout: 10.0
+    attempt_respawn_reconnection: true
+    bond_respawn_max_duration: 10.0

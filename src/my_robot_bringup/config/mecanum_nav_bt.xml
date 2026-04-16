@@ -1,0 +1,108 @@
+<!--
+  Behavior Tree: Mecanum 4-wheel robot — ROS2 Jazzy
+  File: mecanum_nav_bt.xml
+
+  Navigation logic:
+    1. Replan the global path at 1 Hz while following it
+    2. If path following fails → clear local costmap and retry once
+    3. If still failing → run recovery sequence (up to 6 retries total):
+         a. Clear both costmaps
+         b. Back up 0.3 m  (safer than Spin in narrow hospital corridors)
+         c. Wait 3 s       (allow humans / obstacles to move away)
+    4. If a new goal arrives mid-recovery → abort recovery and start fresh
+-->
+<root BTCPP_format="4" main_tree_to_execute="MainTree">
+  <BehaviorTree ID="MainTree">
+
+    <!--
+      RecoveryNode: tries NavigateWithReplanning first.
+      If it fails, runs RecoveryFallback.
+      Retries the whole sequence up to 6 times before returning FAILURE.
+    -->
+    <RecoveryNode number_of_retries="6" name="NavigateRecovery">
+
+      <!-- ── Normal navigation branch ─────────────────────────────── -->
+      <PipelineSequence name="NavigateWithReplanning">
+
+        <!--
+          Replan the global path every 1 second.
+          If ComputePathToPose fails once, clear the global costmap and retry.
+        -->
+        <RateController hz="1.0">
+          <RecoveryNode number_of_retries="1" name="ComputePathToPose">
+            <ComputePathToPose
+              goal="{goal}"
+              path="{path}"
+              planner_id="GridBased"
+              error_code_id="{compute_path_error_code}"/>
+            <ClearEntireCostmap
+              name="ClearGlobalCostmap-Context"
+              service_name="global_costmap/clear_entirely_global_costmap"/>
+          </RecoveryNode>
+        </RateController>
+
+        <!--
+          Follow the planned path with DWB controller (vel_y enabled for mecanum).
+          If following fails once, clear the local costmap and retry.
+        -->
+        <RecoveryNode number_of_retries="1" name="FollowPath">
+          <FollowPath
+            path="{path}"
+            controller_id="FollowPath"
+            error_code_id="{follow_path_error_code}"/>
+          <ClearEntireCostmap
+            name="ClearLocalCostmap-Context"
+            service_name="local_costmap/clear_entirely_local_costmap"/>
+        </RecoveryNode>
+
+      </PipelineSequence>
+
+      <!-- ── Recovery branch ──────────────────────────────────────── -->
+      <!--
+        ReactiveFallback: re-evaluates children every tick.
+        GoalUpdated returns SUCCESS immediately if the goal changed,
+        which aborts the recovery and lets the outer RecoveryNode restart.
+      -->
+      <ReactiveFallback name="RecoveryFallback">
+
+        <GoalUpdated/>
+
+        <!--
+          SequenceWithMemory: executes steps in order; remembers which
+          step succeeded so it does not re-run it on the next tick.
+        -->
+        <SequenceWithMemory name="RecoveryActions">
+
+          <!-- Step 1: clear stale obstacle data from both costmaps -->
+          <ClearEntireCostmap
+            name="ClearLocalCostmap-Subtree"
+            service_name="local_costmap/clear_entirely_local_costmap"/>
+          <ClearEntireCostmap
+            name="ClearGlobalCostmap-Subtree"
+            service_name="global_costmap/clear_entirely_global_costmap"/>
+
+          <!--
+            Step 2: back up 0.3 m at 0.1 m/s
+            Mecanum drives straight backward — safer than spinning in
+            a narrow hospital corridor.
+          -->
+          <BackUp
+            backup_dist="-0.3"
+            backup_speed="0.1"
+          />
+
+          <!--
+            Step 3: wait 3 seconds.
+            Gives time for people or moving obstacles to clear the path
+            before the outer RecoveryNode tries again.
+          -->
+          <Wait
+            wait_duration="3"
+          />
+
+        </SequenceWithMemory>
+      </ReactiveFallback>
+
+    </RecoveryNode>
+  </BehaviorTree>
+</root>

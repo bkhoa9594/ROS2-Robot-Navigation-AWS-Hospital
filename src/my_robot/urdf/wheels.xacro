@@ -1,0 +1,87 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <xacro:macro name="drive_wheel" params="
+    wheel_name
+    joint_name
+    y_pos
+    joint_rpy
+    wheel_radius:=0.06
+    wheel_width:=0.03
+    wheel_mass:=1.0">
+
+    <joint name="${joint_name}" type="continuous">
+      <parent link="base_link"/>
+      <child link="${wheel_name}"/>
+      <origin xyz="0 ${y_pos} 0" rpy="${joint_rpy} 0 0"/>
+      <axis xyz="0 0 1"/>
+    </joint>
+
+    <link name="${wheel_name}">
+      <visual>
+        <geometry>
+          <cylinder radius="${wheel_radius}" length="${wheel_width}"/>
+        </geometry>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <material name="blue">
+          <color rgba="0.0 0.0 1.0 1.0"/>
+        </material>
+      </visual>
+
+      <collision>
+        <geometry>
+          <cylinder radius="${wheel_radius}" length="${wheel_width}"/>
+        </geometry>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+      </collision>
+
+      <inertial>
+        <mass value="${wheel_mass}"/>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <inertia ixx="0.1" ixy="0.0" ixz="0.0"
+                 iyy="0.1" iyz="0.0"
+                 izz="0.1"/>
+      </inertial>
+    </link>
+
+  </xacro:macro>
+
+
+  <xacro:macro name="caster_wheel" params="
+    caster_radius:=0.06
+    caster_mass:=1e-5
+    caster_x:=0.2">
+
+    <joint name="caster_joint" type="fixed">
+      <parent link="base_link"/>
+      <child link="caster_link"/>
+      <origin xyz="${caster_x} 0 0" rpy="0 0 0"/>
+    </joint>
+
+    <link name="caster_link">
+      <visual>
+        <geometry>
+          <sphere radius="${caster_radius}"/>
+        </geometry>
+        <material name="yellow">
+          <color rgba="1.0 1.0 0.0 1.0"/>
+        </material>
+      </visual>
+
+      <collision>
+        <geometry>
+          <sphere radius="${caster_radius}"/>
+        </geometry>
+      </collision>
+
+      <inertial>
+        <mass value="${caster_mass}"/>
+        <inertia ixx="1e-6" ixy="0" ixz="0"
+                 iyy="1e-6" iyz="0"
+                 izz="1e-6"/>
+      </inertial>
+    </link>
+
+  </xacro:macro>
+
+</robot>

@@ -1,0 +1,171 @@
+# Room/destination definitions for the hospital environment
+# Coordinates are in the map frame (meters)
+
+rooms:
+  sanh_chinh:
+    name: "Sảnh chính"
+    x: -0.075
+    y: -4.800
+    yaw: -0.001
+    icon: "🏥"
+    floor: 1
+
+  kho_trai:
+    name: "Kho trái"
+    x: 7.460
+    y: 1.320
+    yaw: 0.001
+    icon: "📦"
+    floor: 1
+
+  nha_phu_1:
+    name: "Nhà phụ 1"
+    x: -7.820
+    y: -0.620
+    yaw: -0.011
+    icon: "🚻"
+    floor: 1
+
+  phong_nho_trai_1:
+    name: "Phòng nhỏ trái 1"
+    x: 10.056
+    y: 4.360
+    yaw: 0.0025
+    icon: "🚪"
+    floor: 1
+
+  phong_nho_trai_2:
+    name: "Phòng nhỏ trái 2"
+    x: 10.410
+    y: 9.727
+    yaw: -0.001
+    icon: "🚪"
+    floor: 1
+
+  phong_nho_phai_1:
+    name: "Phòng nhỏ phải 1"
+    x: -10.140
+    y: -4.490
+    yaw: 0.0025
+    icon: "🚪"
+    floor: 1
+
+  phong_nho_phai_2:
+    name: "Phòng nhỏ phải 2"
+    x: -10.321
+    y: -9.680
+    yaw: 0.0025
+    icon: "🚪"
+    floor: 1
+
+  quay_le_tan:
+    name: "Quầy lễ tân"
+    x: 0.050
+    y: -12.290
+    yaw: -0.0014
+    icon: "💁"
+    floor: 1
+
+  phong_kham_trai_1:
+    name: "Phòng khám trái 1"
+    x: 8.042
+    y: -14.920
+    yaw: 0.001
+    icon: "🩺"
+    floor: 1
+
+  phong_kham_phai_1:
+    name: "Phòng khám phải 1"
+    x: 8.351
+    y: -34.286
+    yaw: -0.0014
+    icon: "🩺"
+    floor: 1
+
+  phong_benh_phai_1:
+    name: "Phòng bệnh phải 1"
+    x: -8.109
+    y: -18.503
+    yaw: 0.0025
+    icon: "🛏️"
+    floor: 1
+
+  phong_benh_phai_2:
+    name: "Phòng bệnh phải 2"
+    x: -7.859
+    y: -33.285
+    yaw: 0.0025
+    icon: "🛏️"
+    floor: 1
+
+  phong_tt_trai_1:
+    name: "Phòng TT trái 1"
+    x: 1.246
+    y: 18.370
+    yaw: -0.001
+    icon: "🔬"
+    floor: 1
+
+  phong_tt_trai_2:
+    name: "Phòng TT trái 2"
+    x: 1.789
+    y: -26.185
+    yaw: 0.001
+    icon: "🔬"
+    floor: 1
+
+  phong_tt_trai_3:
+    name: "Phòng TT trái 3"
+    x: 2.152
+    y: -32.479
+    yaw: -0.001
+    icon: "🔬"
+    floor: 1
+
+  phong_tt_phai_1:
+    name: "Phòng TT phải 1"
+    x: -1.077
+    y: 17.560
+    yaw: -0.001
+    icon: "🔬"
+    floor: 1
+
+  phong_tt_phai_2:
+    name: "Phòng TT phải 2"
+    x: -1.488
+    y: -26.306
+    yaw: 0.002
+    icon: "🔬"
+    floor: 1
+
+  phong_tt_phai_3:
+    name: "Phòng TT phải 3"
+    x: -2.437
+    y: -32.089
+    yaw: 0.0025
+    icon: "🔬"
+    floor: 1
+
+  phong_cuoi_trai:
+    name: "Phòng cuối trái"
+    x: 2.493
+    y: -42.597
+    yaw: 0.0025
+    icon: "🚪"
+    floor: 1
+
+  phong_cuoi_phai:
+    name: "Phòng cuối phải"
+    x: -7.219
+    y: -43.739
+    yaw: 0.0014
+    icon: "🚪"
+    floor: 1
+
+  phong_cuoi_cung:
+    name: "Phòng cuối cùng"
+    x: 2.310
+    y: -48.830
+    yaw: 0.0024
+    icon: "🏁"
+    floor: 1

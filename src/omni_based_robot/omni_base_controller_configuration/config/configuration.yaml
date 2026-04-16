@@ -1,0 +1,83 @@
+controller_manager:
+  ros__parameters:
+    update_rate: 100
+
+    joint_state_broadcaster:
+      type: joint_state_broadcaster/JointStateBroadcaster
+
+    imu_sensor_broadcaster:
+      type: imu_sensor_broadcaster/IMUSensorBroadcaster
+
+    mobile_base_controller:
+      type: omni_drive_controller/OmniDriveController
+
+
+joint_state_broadcaster:
+  ros__parameters:
+    publish_rate: 50.0
+
+imu_sensor_broadcaster:
+  ros__parameters:
+    sensor_name: "base_imu_sensor"
+    frame_id: "base_imu_link"
+    publish_rate: 50.0
+
+
+mobile_base_controller:
+  ros__parameters:
+    use_stamped_vel: false
+
+    left_front_wheel: 'wheel_front_left_joint'
+    left_back_wheel: 'wheel_rear_left_joint'
+    right_front_wheel: 'wheel_front_right_joint'
+    right_back_wheel: 'wheel_rear_right_joint'
+
+    wheel_radius: 0.0762
+    wheel_separation: 0.44715
+    axis_separation: 0.488
+
+    wheel_separation_multiplier: 1.0
+    wheel_radius_multiplier: 1.0
+    axis_separation_multiplier: 1.0
+
+    publish_rate: 50.0
+    pose_covariance_diagonal: [0.001, 0.001, 0.001, 0.001, 0.001, 0.01]
+    twist_covariance_diagonal: [0.001, 0.001, 0.001, 0.001, 0.001, 0.01]
+
+    cmd_vel_timeout: 0.25
+
+    base_frame_id: base_footprint
+    odom_frame_id: odom
+
+    enable_odom_tf: true
+    publish_limited_velocity: true
+
+    linear:
+      x:
+        has_velocity_limits: true
+        max_velocity: 1.0
+        min_velocity: -1.0
+        has_acceleration_limits: true
+        max_acceleration: 1.0
+        min_acceleration: -1.0
+        has_jerk_limits: false
+        max_jerk: 5.0
+      y:
+        has_velocity_limits: true
+        max_velocity: 1.0
+        min_velocity: -1.0
+        has_acceleration_limits: true
+        max_acceleration: 1.0
+        min_acceleration: -1.0
+        has_jerk_limits: false
+        max_jerk: 5.0
+
+    angular:
+      z:
+        has_velocity_limits: true
+        max_velocity: 2.09
+        has_acceleration_limits: true
+        max_acceleration: 2.09
+        min_acceleration: -2.09
+        has_jerk_limits: false
+        max_jerk: 10.47
