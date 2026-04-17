@@ -52,7 +52,7 @@ def generate_launch_description():
 
         # 1) Start Gazebo
         ExecuteProcess(
-            cmd=['gz', 'sim', '-r', world_file, '-s'],
+            cmd=['gz', 'sim', '-r', world_file],
             output='screen'
         ),
 
