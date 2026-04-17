@@ -1,108 +1,77 @@
-<!--
-  Behavior Tree: Mecanum 4-wheel robot — ROS2 Jazzy
-  File: mecanum_nav_bt.xml
-
-  Navigation logic:
-    1. Replan the global path at 1 Hz while following it
-    2. If path following fails → clear local costmap and retry once
-    3. If still failing → run recovery sequence (up to 6 retries total):
-         a. Clear both costmaps
-         b. Back up 0.3 m  (safer than Spin in narrow hospital corridors)
-         c. Wait 3 s       (allow humans / obstacles to move away)
-    4. If a new goal arrives mid-recovery → abort recovery and start fresh
--->
+<?xml version="1.0" encoding="UTF-8"?>
 <root BTCPP_format="4" main_tree_to_execute="MainTree">
   <BehaviorTree ID="MainTree">
-
-    <!--
-      RecoveryNode: tries NavigateWithReplanning first.
-      If it fails, runs RecoveryFallback.
-      Retries the whole sequence up to 6 times before returning FAILURE.
-    -->
-    <RecoveryNode number_of_retries="6" name="NavigateRecovery">
-
-      <!-- ── Normal navigation branch ─────────────────────────────── -->
+    <RecoveryNode name="NavigateRecovery" number_of_retries="6">
+      
       <PipelineSequence name="NavigateWithReplanning">
-
-        <!--
-          Replan the global path every 1 second.
-          If ComputePathToPose fails once, clear the global costmap and retry.
-        -->
         <RateController hz="1.0">
-          <RecoveryNode number_of_retries="1" name="ComputePathToPose">
-            <ComputePathToPose
-              goal="{goal}"
-              path="{path}"
-              planner_id="GridBased"
-              error_code_id="{compute_path_error_code}"/>
-            <ClearEntireCostmap
-              name="ClearGlobalCostmap-Context"
-              service_name="global_costmap/clear_entirely_global_costmap"/>
+          <RecoveryNode name="ComputePathToPose" number_of_retries="1">
+            <ComputePathToPose goal="{goal}" path="{path}" planner_id="GridBased" error_code_id="{compute_path_error_code}"/>
+            <ClearEntireCostmap name="ClearGlobalCostmap-Context" service_name="global_costmap/clear_entirely_global_costmap"/>
           </RecoveryNode>
         </RateController>
 
-        <!--
-          Follow the planned path with DWB controller (vel_y enabled for mecanum).
-          If following fails once, clear the local costmap and retry.
-        -->
-        <RecoveryNode number_of_retries="1" name="FollowPath">
-          <FollowPath
-            path="{path}"
-            controller_id="FollowPath"
-            error_code_id="{follow_path_error_code}"/>
-          <ClearEntireCostmap
-            name="ClearLocalCostmap-Context"
-            service_name="local_costmap/clear_entirely_local_costmap"/>
+        <RecoveryNode name="FollowPath_Recovery" number_of_retries="1">
+          <FollowPath path="{path}" controller_id="FollowPath" error_code_id="{follow_path_error_code}"/>
+          <ClearEntireCostmap name="ClearLocalCostmap-Context" service_name="local_costmap/clear_entirely_local_costmap"/>
         </RecoveryNode>
-
       </PipelineSequence>
 
-      <!-- ── Recovery branch ──────────────────────────────────────── -->
-      <!--
-        ReactiveFallback: re-evaluates children every tick.
-        GoalUpdated returns SUCCESS immediately if the goal changed,
-        which aborts the recovery and lets the outer RecoveryNode restart.
-      -->
-      <ReactiveFallback name="RecoveryFallback">
+      <RoundRobin name="RecoveryActions">
+        <ClearEntireCostmap name="ClearLocalCostmap-Subtree" service_name="local_costmap/clear_entirely_local_costmap"/>
+        
+        <Wait wait_duration="2.0"/>
 
-        <GoalUpdated/>
-
-        <!--
-          SequenceWithMemory: executes steps in order; remembers which
-          step succeeded so it does not re-run it on the next tick.
-        -->
-        <SequenceWithMemory name="RecoveryActions">
-
-          <!-- Step 1: clear stale obstacle data from both costmaps -->
-          <ClearEntireCostmap
-            name="ClearLocalCostmap-Subtree"
-            service_name="local_costmap/clear_entirely_local_costmap"/>
-          <ClearEntireCostmap
-            name="ClearGlobalCostmap-Subtree"
-            service_name="global_costmap/clear_entirely_global_costmap"/>
-
-          <!--
-            Step 2: back up 0.3 m at 0.1 m/s
-            Mecanum drives straight backward — safer than spinning in
-            a narrow hospital corridor.
-          -->
-          <BackUp
-            backup_dist="-0.3"
-            backup_speed="0.1"
-          />
-
-          <!--
-            Step 3: wait 3 seconds.
-            Gives time for people or moving obstacles to clear the path
-            before the outer RecoveryNode tries again.
-          -->
-          <Wait
-            wait_duration="3"
-          />
-
-        </SequenceWithMemory>
-      </ReactiveFallback>
+        <Sequence name="EvadeObstacleLogic">
+          <BackUp backup_dist="-0.3" backup_speed="0.15"/>
+          
+          <RetryUntilSuccessful num_attempts="12">
+            <Sequence name="SpinAndCheck">
+              <Spin spin_dist="0.52"/> <ComputePathToPose goal="{goal}" path="{path}" planner_id="GridBased"/>
+            </Sequence>
+          </RetryUntilSuccessful>
+        </Sequence>
+      </RoundRobin>
 
     </RecoveryNode>
   </BehaviorTree>
+
+  <TreeNodesModel>
+    <Action ID="BackUp" editable="true">
+      <input_port name="backup_dist"/>
+      <input_port name="backup_speed"/>
+    </Action>
+    <Action ID="ClearEntireCostmap" editable="true">
+      <input_port name="service_name"/>
+    </Action>
+    <Action ID="ComputePathToPose" editable="true">
+      <input_port name="goal"/>
+      <input_port name="path"/>
+      <input_port name="planner_id"/>
+      <input_port name="error_code_id"/>
+    </Action>
+    <Action ID="FollowPath" editable="true">
+      <input_port name="path"/>
+      <input_port name="controller_id"/>
+      <input_port name="error_code_id"/>
+    </Action>
+    <Action ID="Spin" editable="true">
+      <input_port name="spin_dist"/>
+    </Action>
+    <Action ID="Wait" editable="true">
+      <input_port name="wait_duration"/>
+    </Action>
+    <Control ID="PipelineSequence" editable="true"/>
+    <Control ID="RecoveryNode" editable="true">
+      <input_port name="number_of_retries"/>
+    </Control>
+    <Control ID="RoundRobin" editable="true"/>
+    <Control ID="Sequence" editable="true"/>
+    <Control ID="RetryUntilSuccessful" editable="true">
+      <input_port name="num_attempts"/>
+    </Control>
+    <Decorator ID="RateController" editable="true">
+      <input_port name="hz"/>
+    </Decorator>
+  </TreeNodesModel>
 </root>

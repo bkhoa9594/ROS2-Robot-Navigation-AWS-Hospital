@@ -130,7 +130,7 @@ def generate_launch_description():
             name='behavior_server',
             output='screen',
             parameters=[nav2_yaml],
-            #remappings=[('cmd_vel', '/cmd_vel_nav')],
+            remappings=[('cmd_vel', '/cmd_vel_nav')],
         ),
 
         # ── BT Navigator ──────────────────────────────────────────────────────

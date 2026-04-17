@@ -79,14 +79,15 @@ bt_navigator:
     bt_loop_duration: 10
     default_server_timeout: 20
     # BT XML path is injected by navigation.launch.py at runtime
-    default_nav_to_pose_bt_xml: ""
+    default_nav_to_pose_bt_xml: "/home/khoa/ros2_ws/src/my_robot_bringup/config/mecanum_nav_bt.xml"
     navigators: ["navigate_to_pose", "navigate_through_poses"]
     navigate_to_pose:
       plugin: "nav2_bt_navigator::NavigateToPoseNavigator"
     navigate_through_poses:
       plugin: "nav2_bt_navigator::NavigateThroughPosesNavigator"
     # plugin_lib_names is NOT used in Jazzy — removed to prevent crash
-
+    #default_bt_xml_filename: "/home/khoa/ros2_ws/src/my_robot_bringup/config/mecanum_nav_bt.xml"
+    
 # -----------------------------------------------------------------------------
 # Planner Server — NavFn A* global path planner
 # use_astar: true is faster than Dijkstra on a large hospital map
@@ -137,15 +138,15 @@ controller_server:
       debug_trajectory_details: True
 
       # Velocity limits — mecanum can move laterally (vel_y != 0)
-      min_vel_x:  0.0
-      min_vel_y:  0.0
+      min_vel_x:  -1.5
+      min_vel_y:  -0.5
       max_vel_x:  1.5
-      max_vel_y:  0.2
+      max_vel_y:  0.5
       max_vel_theta: 1.57
-      min_vel_theta: 0.0
-      min_speed_xy: -0.1
-      max_speed_xy: 1.0
-      min_speed_theta: -0.5
+      min_vel_theta: -1.57
+      min_speed_xy: 0.0
+      max_speed_xy: 1.5
+      min_speed_theta: 0.0
 
       # Acceleration limits — lateral accel required for mecanum
       acc_lim_x: 2.0
@@ -460,7 +461,7 @@ lifecycle_manager_navigation:
   ros__parameters:
     use_sim_time: True
     autostart: True
-    node_names: ['map_server', 'amcl', 'controller_server', 'smoother_server', 'planner_server', 'behavior_server', 'bt_navigator', 'waypoint_follower', 'velocity_smoother', 'collision_monitor', 'collision_detector']    
+    node_names: ['map_server', 'amcl', 'controller_server', 'smoother_server', 'planner_server', 'behavior_server', 'bt_navigator', 'waypoint_follower', 'velocity_smoother', 'collision_monitor']    
     bond_timeout: 10.0
     attempt_respawn_reconnection: true
     bond_respawn_max_duration: 10.0

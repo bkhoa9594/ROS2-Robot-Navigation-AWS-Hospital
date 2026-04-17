@@ -52,7 +52,7 @@ def generate_launch_description():
 
         # 1) Start Gazebo
         ExecuteProcess(
-            cmd=['gz', 'sim', '-r', world_file],
+            cmd=['gz', 'sim', '-r', world_file, '-s'],
             output='screen'
         ),
 
@@ -114,14 +114,15 @@ def generate_launch_description():
                     package='controller_manager',
                     executable='spawner',
                     arguments=['joint_state_broadcaster'],
+                    parameters=[{'use_sim_time': True}], 
                     output='screen'
                 ),
-                Node(
-                    package='controller_manager',
-                    executable='spawner',
-                    arguments=['imu_sensor_broadcaster'],
-                    output='screen'
-                ),
+                # Node(
+                #     package='controller_manager',
+                #     executable='spawner',
+                #     arguments=['imu_sensor_broadcaster'],
+                #     output='screen'
+                # ),
                 Node(
                     package='controller_manager',
                     executable='spawner',
